@@ -148,6 +148,10 @@ if df.empty:
     st.error("No data returned from Yahoo Finance.")
     st.stop()
 
+# Hard bounds for the x-axis (prevents infinite panning/zooming)
+x_min = df["Date"].min()
+x_max = df["Date"].max()
+
 # -------------------------------------------------------------------
 # Metrics
 # -------------------------------------------------------------------
@@ -221,6 +225,9 @@ fig.update_layout(
     xaxis=dict(
         title="Date",
         type="date",
+        range=[x_min, x_max],
+        minallowed=x_min,
+        maxallowed=x_max,
         showgrid=False,
         rangeslider=dict(visible=False),
         tickformat=x_tickformat,
@@ -255,8 +262,6 @@ st.plotly_chart(
             "lasso2d",
             "zoomIn2d",
             "zoomOut2d",
-            "autoScale2d",
-            "resetScale2d",
         ],
     },
 )
@@ -269,7 +274,51 @@ colA, colB = st.columns([1, 1])
 with colA:
     if show_volume and "Volume" in df.columns:
         st.subheader("Volume")
-        st.bar_chart(df.set_index("Date")["Volume"])
+
+        vfig = go.Figure(
+            data=[
+                go.Bar(
+                    x=df["Date"],
+                    y=df["Volume"].astype(float),
+                    name="Volume",
+                )
+            ]
+        )
+
+        vfig.update_layout(
+            template="plotly_dark",
+            height=250,
+            margin=dict(l=30, r=30, t=30, b=30),
+            xaxis=dict(
+                type="date",
+                range=[x_min, x_max],
+                minallowed=x_min,
+                maxallowed=x_max,
+                showgrid=False,
+                rangeslider=dict(visible=False),
+            ),
+            yaxis=dict(
+                showgrid=False,
+                title="",
+            ),
+        )
+
+        st.plotly_chart(
+            vfig,
+            width="stretch",
+            config={
+                "scrollZoom": True,
+                "displayModeBar": True,
+                "displaylogo": False,
+                "modeBarButtonsToRemove": [
+                    "zoom2d",
+                    "select2d",
+                    "lasso2d",
+                    "zoomIn2d",
+                    "zoomOut2d",
+                ],
+            },
+        )
 
 with colB:
     st.subheader("Stats")
