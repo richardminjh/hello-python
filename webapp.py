@@ -91,7 +91,7 @@ def fetch_history(ticker: str, period: str, interval: str) -> pd.DataFrame:
     if df is None or df.empty:
         return pd.DataFrame()
     df = df.reset_index()
-    df["Date"] = pd.to_datetime(df["Date"], utc=True)
+    df["Date"] = pd.to_datetime(df["Date"]).dt.tz_localize(None)
     return df.dropna()
 
 with st.spinner(f"Loading {label}…"):
@@ -106,8 +106,8 @@ if df.empty:
 # -------------------------------------------------------------------
 close = df["Close"].dropna()
 
-last = float(close.iloc[-1])
-prev = float(close.iloc[-2]) if len(close) > 1 else None
+last = float(close.iloc[-1].item())
+prev = float(close.iloc[-2].item()) if len(close) > 1 else None
 
 if prev is not None and prev != 0:
     chg = last - prev
@@ -116,8 +116,8 @@ else:
     chg = None
     chg_pct = None
 
-hi = float(df["High"].max())
-lo = float(df["Low"].min())
+hi = float(df["High"].max().item())
+lo = float(df["Low"].min().item())
 
 c1, c2, c3, c4, c5 = st.columns(5)
 c1.metric("Last", f"{last:,.2f}")
@@ -206,5 +206,12 @@ with colA:
 
 with colB:
     st.subheader("Stats")
-    stats = df["Close"].describe().to_frame(name="Close")
+
+    desc = df["Close"].describe()
+
+    if isinstance(desc, pd.Series):
+        stats = desc.to_frame(name="Close")
+    else:
+        stats = desc.rename(columns={"Close": "Close"})
+
     st.dataframe(stats, width="stretch")
