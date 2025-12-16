@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+os.environ["YFINANCE_NO_SCI"] = "1"
 from datetime import datetime, timezone
 from typing import Dict
 import logging
@@ -80,15 +82,15 @@ def metrics_from_df(df: pd.DataFrame) -> dict:
     if len(close) == 0:
         return {"last": None, "chg": None, "chg_pct": None, "hi": None, "lo": None, "vol": None}
 
-    last = float(close.iloc[-1])
-    prev = float(close.iloc[-2]) if len(close) >= 2 else None
+    last = float(close.iloc[-1].item())
+    prev = float(close.iloc[-2].item()) if len(close) >= 2 else None
 
     chg = (last - prev) if prev is not None else None
     chg_pct = (chg / prev * 100.0) if (prev not in (None, 0.0) and chg is not None) else None
 
-    hi = float(df["High"].max()) if "High" in df.columns else None
-    lo = float(df["Low"].min()) if "Low" in df.columns else None
-    vol = float(df["Volume"].iloc[-1]) if "Volume" in df.columns and not df["Volume"].empty else None
+    hi = float(df["High"].max().item()) if "High" in df.columns else None
+    lo = float(df["Low"].min().item()) if "Low" in df.columns else None
+    vol = float(df["Volume"].iloc[-1].item()) if "Volume" in df.columns and not df["Volume"].empty else None
 
     return {"last": last, "chg": chg, "chg_pct": chg_pct, "hi": hi, "lo": lo, "vol": vol}
 
@@ -171,7 +173,7 @@ fig.update_layout(
     xaxis_rangeslider_visible=False,
 )
 
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, width="stretch")
 
 # ---- Optional volume + stats table ----
 colA, colB = st.columns([1, 1])
@@ -183,9 +185,10 @@ with colA:
 
 with colB:
     st.subheader("Stats")
-    stats = pd.DataFrame(
-        {
-            "Close": df["Close"].describe() if "Close" in df.columns else pd.Series(dtype=float),
-        }
-    )
-    st.dataframe(stats, use_container_width=True)
+
+    if "Close" in df.columns and not df["Close"].dropna().empty:
+        desc = df["Close"].describe()
+        stats = desc.to_frame(name="Close")
+        st.dataframe(stats, use_container_width=True)
+    else:
+        st.info("No statistics available for this selection.")
