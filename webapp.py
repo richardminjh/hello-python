@@ -462,7 +462,7 @@ with chart_col:
         button {{ cursor:pointer; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.9); padding: 6px 10px; border-radius: 8px; font-size: 12px; }}
         button:hover {{ background: rgba(255,255,255,0.10); }}
         #delta {{ margin-left:auto; padding:6px 10px; border-radius: 8px; background: rgba(0,0,0,0.25); color: rgba(255,255,255,0.92); font-size: 12px; white-space: nowrap; }}
-        #chart {{ width: 100%; height: 545px; }}
+        #chart {{ width: 100%; height: 520px; }}
       </style>
     </head>
     <body>
@@ -708,7 +708,7 @@ with chart_col:
     html = html.replace("{{", "{").replace("}}", "}")
     # Inject the Python payload JSON into the JS placeholder
     html = html.replace("__PAYLOAD__", json.dumps(payload))
-    components.html(html, height=660, scrolling=False)
+    components.html(html, height=640, scrolling=False)
 
 # -------------------------------------------------------------------
 # Stats (prettier + more useful)
@@ -718,11 +718,12 @@ with stats_col:
         """
         <style>
           .stats-panel {
-            height: 660px;                 /* match components.html height */
+            height: 640px;                 /* match components.html height */
             display: flex;
             flex-direction: column;
             justify-content: flex-start;
             padding-top: 2px;
+            overflow: hidden;
           }
           .stats-head {
             font-size: 22px;
@@ -738,15 +739,18 @@ with stats_col:
             display: grid;
             grid-template-columns: 1fr 1fr;
             column-gap: 22px;
-            row-gap: 18px;                 /* “poof out” spacing */
+            row-gap: 26px;                 /* more vertical breathing room */
+            flex: 1;
+            align-content: space-between;  /* spread rows vertically to reduce dead space */
+            padding-bottom: 10px;
           }
           .stat-k { font-size: 12px; opacity: 0.85; margin-bottom: 6px; }
           .stat-v { font-size: 22px; font-weight: 800; line-height: 1.05; }
           .stats-tip {
-            margin-top: auto;              /* pins to bottom */
+            margin-top: 8px;               /* move tip up slightly */
             font-size: 11px;
             opacity: 0.65;
-            padding-bottom: 2px;
+            padding-bottom: 0px;
           }
         </style>
         """,
