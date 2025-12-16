@@ -10,10 +10,8 @@ import plotly.graph_objects as go
 import streamlit as st
 import yfinance as yf
 
-try:
-    from streamlit_plotly_events import plotly_events
-except Exception:
-    plotly_events = None
+import json
+import streamlit.components.v1 as components
 
 # -------------------------------------------------------------------
 # Environment safety
@@ -120,11 +118,6 @@ with st.sidebar:
     show_ohlc = st.toggle("Candlesticks (OHLC)", value=True)
     show_volume = st.toggle("Show Volume", value=False)
 
-    measure_mode = st.toggle("Measure Δ (click-drag on chart)", value=False)
-
-    if measure_mode and plotly_events is None:
-        st.warning("Install streamlit-plotly-events to enable measurement:  pip install streamlit-plotly-events")
-
 ticker = COMMODITIES[label]
 period = PERIOD_MAP[period_ui]
 interval = INTERVAL_MAP[interval_ui]
@@ -227,7 +220,7 @@ fig.update_layout(
     uirevision=f"{ticker}-{period}-{interval}-{show_ohlc}",
     height=600,
     hovermode="x unified",
-    dragmode=("select" if measure_mode else "pan"),
+    dragmode="pan",
     margin=dict(l=30, r=30, t=40, b=40),
     xaxis=dict(
         title="Date",
@@ -254,87 +247,288 @@ fig.update_layout(
     ),
 )
 
-chart_config = {
-    "scrollZoom": True,
-    "displayModeBar": True,
-    "displaylogo": False,
-    "modeBarButtonsToRemove": [
-        "zoom2d",
-        "lasso2d",
-        "zoomIn2d",
-        "zoomOut2d",
-    ],
+# Basic chart (stable Streamlit render)
+st.plotly_chart(
+    fig,
+    width="stretch",
+    config={
+        "scrollZoom": True,
+        "displayModeBar": True,
+        "displaylogo": False,
+        "modeBarButtonsToRemove": [
+            "zoom2d",
+            "select2d",
+            "lasso2d",
+            "zoomIn2d",
+            "zoomOut2d",
+        ],
+    },
+)
+
+st.divider()
+st.subheader("Pro Chart (Yahoo-style)")
+st.caption("Hard range locks • Auto y-axis refit • Click-drag Δ measurement (drag on blank space pans)")
+
+# Serialize Plotly figure for the JS component
+fig_json = fig.to_json()
+
+# Use data bounds for hard clamping
+x_min = df["Date"].min()
+x_max = df["Date"].max()
+
+# Build a clean array of OHLC for y-refit (falls back to Close)
+series_close = df["Close"].astype(float).tolist()
+series_open = df["Open"].astype(float).tolist() if "Open" in df.columns else None
+series_high = df["High"].astype(float).tolist() if "High" in df.columns else None
+series_low = df["Low"].astype(float).tolist() if "Low" in df.columns else None
+series_x = [d.isoformat() for d in pd.to_datetime(df["Date"]).tolist()]
+
+# Pass everything into JS safely
+payload = {
+    "fig": json.loads(fig_json),
+    "xMin": pd.to_datetime(x_min).isoformat(),
+    "xMax": pd.to_datetime(x_max).isoformat(),
+    "x": series_x,
+    "close": series_close,
+    "open": series_open,
+    "high": series_high,
+    "low": series_low,
+    "interval": interval,
+    "label": label,
 }
 
-# In pan mode, remove select tool from the modebar.
-# In measure mode, keep select tool.
-if not measure_mode:
-    chart_config["modeBarButtonsToRemove"].append("select2d")
+html = f"""
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+  <style>
+    html, body {{ margin:0; padding:0; background: transparent; }}
+    #wrap {{ width: 100%; }}
+    #toolbar {{ display:flex; gap:8px; align-items:center; margin: 6px 0 10px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }}
+    #pill {{ padding:6px 10px; border-radius: 999px; background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.9); font-size: 12px; }}
+    button {{ cursor:pointer; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.9); padding: 6px 10px; border-radius: 8px; font-size: 12px; }}
+    button:hover {{ background: rgba(255,255,255,0.10); }}
+    #delta {{ margin-left:auto; padding:6px 10px; border-radius: 8px; background: rgba(0,0,0,0.25); color: rgba(255,255,255,0.92); font-size: 12px; white-space: nowrap; }}
+    #chart {{ width: 100%; height: 620px; }}
+  </style>
+</head>
+<body>
+<div id="wrap">
+  <div id="toolbar">
+    <span id="pill">Drag blank space = pan • Scroll = zoom • Drag on candle/line = Δ</span>
+    <button id="btnReset">Reset view</button>
+    <button id="btnClear">Clear Δ</button>
+    <div id="delta">Δ: —</div>
+  </div>
+  <div id="chart"></div>
+</div>
 
-selected_points = None
+<script>
+(function() {{
+  const payload = {json.dumps(payload)};
 
-# streamlit-plotly-events can be flaky with Candlestick traces depending on version.
-# For reliable Δ measurement, we use a simple Close line chart in measurement mode.
-event_fig = fig
-if measure_mode:
-    event_fig = go.Figure()
-    event_fig.add_trace(
-        go.Scatter(
-            x=df["Date"],
-            y=df["Close"].astype(float),
-            mode="lines",
-            name=f"{label} (Close)",
-        )
-    )
-    event_fig.update_layout(fig.layout)
-    event_fig.update_layout(dragmode="select")
+  const gd = document.getElementById('chart');
+  const deltaBox = document.getElementById('delta');
+  const btnReset = document.getElementById('btnReset');
+  const btnClear = document.getElementById('btnClear');
 
-if measure_mode and plotly_events is not None:
-    # Some versions of streamlit-plotly-events are picky about override_width types.
-    # Also: never let the chart disappear — always have a fallback render.
-    try:
-        selected_points = plotly_events(
-            event_fig,
-            select_event=True,
-            click_event=False,
-            override_height=600,
-            key=f"plotly-{ticker}-{period}-{interval}-{show_ohlc}-{measure_mode}",
-        )
-    except Exception as e:
-        st.warning(f"Measure Δ failed to render (falling back to normal chart): {e}")
-        st.plotly_chart(fig, width="stretch", config=chart_config)
-        selected_points = None
-else:
-    st.plotly_chart(fig, width="stretch", config=chart_config)
+  const xMin = new Date(payload.xMin).getTime();
+  const xMax = new Date(payload.xMax).getTime();
 
-# If user selected a range of candles/points, compute delta
-if selected_points:
-    # selected_points items contain x (datetime) and y (price)
-    xs = [p.get("x") for p in selected_points if p.get("x") is not None]
-    if len(xs) >= 2:
-        x0 = pd.to_datetime(min(xs)).to_datetime64()
-        x1 = pd.to_datetime(max(xs)).to_datetime64()
+  // --- helpers ---
+  function clamp(v, lo, hi) {{ return Math.max(lo, Math.min(hi, v)); }}
 
-        # Find nearest closes to endpoints
-        tmp = df[["Date", "Close"]].dropna().copy()
-        tmp["Date"] = pd.to_datetime(tmp["Date"]).astype("datetime64[ns]")
+  function getVisibleIndexRange(x0, x1) {{
+    // x array is sorted by time; find nearest indices
+    const xs = payload.x;
+    let i0 = 0, i1 = xs.length - 1;
+    // linear scan is fine for <= ~10k points; keep it simple
+    for (let i = 0; i < xs.length; i++) {{
+      const t = new Date(xs[i]).getTime();
+      if (t >= x0) {{ i0 = i; break; }}
+    }}
+    for (let i = xs.length - 1; i >= 0; i--) {{
+      const t = new Date(xs[i]).getTime();
+      if (t <= x1) {{ i1 = i; break; }}
+    }}
+    if (i1 < i0) {{ i0 = 0; i1 = xs.length - 1; }}
+    return [i0, i1];
+  }}
 
-        p0 = float(tmp.loc[(tmp["Date"] - x0).abs().idxmin(), "Close"])
-        p1 = float(tmp.loc[(tmp["Date"] - x1).abs().idxmin(), "Close"])
+  function refitY(x0, x1) {{
+    const [i0, i1] = getVisibleIndexRange(x0, x1);
+    let lo = Infinity, hi = -Infinity;
 
-        d_abs = p1 - p0
-        d_pct = (d_abs / p0) * 100 if p0 != 0 else None
+    if (payload.low && payload.high) {{
+      for (let i = i0; i <= i1; i++) {{
+        const L = payload.low[i];
+        const H = payload.high[i];
+        if (Number.isFinite(L)) lo = Math.min(lo, L);
+        if (Number.isFinite(H)) hi = Math.max(hi, H);
+      }}
+    }} else {{
+      for (let i = i0; i <= i1; i++) {{
+        const C = payload.close[i];
+        if (Number.isFinite(C)) {{ lo = Math.min(lo, C); hi = Math.max(hi, C); }}
+      }}
+    }}
 
-        st.success(
-            f"Δ from {pd.to_datetime(x0).strftime('%Y-%m-%d %H:%M')} → {pd.to_datetime(x1).strftime('%Y-%m-%d %H:%M')}: "
-            f"{d_abs:+.2f} ({d_pct:+.2f}%)"
-            if d_pct is not None
-            else f"Δ from {pd.to_datetime(x0).strftime('%Y-%m-%d %H:%M')} → {pd.to_datetime(x1).strftime('%Y-%m-%d %H:%M')}: {d_abs:+.2f}"
-        )
-    else:
-        st.info("Drag-select at least two points to compute Δ.")
-elif measure_mode and plotly_events is not None:
-    st.caption("Tip: drag a box over the line to measure Δ. Toggle off to return to the candlestick view.")
+    if (!Number.isFinite(lo) || !Number.isFinite(hi) || lo === hi) return;
+    const pad = (hi - lo) * 0.06;
+    const y0 = lo - pad;
+    const y1 = hi + pad;
+    Plotly.relayout(gd, {{ 'yaxis.range': [y0, y1] }});
+  }}
+
+  function setDeltaText(start, end) {{
+    if (!start || !end) {{ deltaBox.textContent = 'Δ: —'; return; }}
+    const dAbs = end.p - start.p;
+    const dPct = start.p !== 0 ? (dAbs / start.p) * 100.0 : NaN;
+    const s0 = new Date(start.x).toLocaleString();
+    const s1 = new Date(end.x).toLocaleString();
+    const absStr = (dAbs >= 0 ? '+' : '') + dAbs.toFixed(2);
+    const pctStr = (dPct >= 0 ? '+' : '') + dPct.toFixed(2) + '%';
+    deltaBox.textContent = `Δ: ${absStr} (${pctStr}) • ${s0} → ${s1}`;
+  }}
+
+  function drawDelta(start, end) {{
+    if (!start || !end) return;
+    const x0 = new Date(start.x);
+    const x1 = new Date(end.x);
+    const shapes = [
+      {{ type: 'line', xref:'x', yref:'paper', x0:x0, x1:x0, y0:0, y1:1, line: {{ width: 1 }} }},
+      {{ type: 'line', xref:'x', yref:'paper', x0:x1, x1:x1, y0:0, y1:1, line: {{ width: 1 }} }},
+    ];
+    Plotly.relayout(gd, {{ shapes }});
+  }}
+
+  function clearDelta() {{
+    Plotly.relayout(gd, {{ shapes: [] }});
+    setDeltaText(null, null);
+    deltaStart = null;
+    deltaEnd = null;
+    measuring = false;
+  }}
+
+  // --- create plot ---
+  const fig = payload.fig;
+
+  // Ensure we start in pan mode; our JS will decide when to measure
+  fig.layout = fig.layout || {{}};
+  fig.layout.dragmode = 'pan';
+  fig.layout.xaxis = fig.layout.xaxis || {{}};
+  fig.layout.yaxis = fig.layout.yaxis || {{}};
+  fig.layout.xaxis.autorange = true;
+  fig.layout.yaxis.autorange = true;
+
+  const config = {{
+    scrollZoom: true,
+    displaylogo: false,
+    responsive: true,
+    modeBarButtonsToRemove: ['zoom2d','select2d','lasso2d','zoomIn2d','zoomOut2d'],
+  }};
+
+  Plotly.newPlot(gd, fig.data, fig.layout, config).then(() => {{
+    // Initial y-fit
+    const xr = gd._fullLayout.xaxis.range;
+    if (xr && xr.length === 2) {{
+      refitY(new Date(xr[0]).getTime(), new Date(xr[1]).getTime());
+    }}
+  }});
+
+  // --- hard clamp x-range + auto y refit on pan/zoom ---
+  gd.on('plotly_relayout', (e) => {{
+    const r0 = e['xaxis.range[0]'];
+    const r1 = e['xaxis.range[1]'];
+    if (!r0 || !r1) return;
+
+    let a = new Date(r0).getTime();
+    let b = new Date(r1).getTime();
+
+    const span = b - a;
+    const minSpan = 1000 * 60; // 1 minute
+    const safeSpan = Math.max(span, minSpan);
+
+    const aC = clamp(a, xMin, xMax - safeSpan);
+    const bC = aC + safeSpan;
+
+    // If clamped, relayout back immediately (this creates the “does not move past edge” feel)
+    if (aC !== a || bC !== b) {{
+      Plotly.relayout(gd, {{ 'xaxis.range': [new Date(aC), new Date(bC)] }});
+      refitY(aC, bC);
+      return;
+    }}
+
+    refitY(a, b);
+  }});
+
+  // --- Yahoo-style Δ measurement ---
+  let hoverPoint = null;
+  let measuring = false;
+  let deltaStart = null;
+  let deltaEnd = null;
+
+  gd.on('plotly_hover', (ev) => {{
+    if (!ev || !ev.points || !ev.points.length) return;
+    const p = ev.points[0];
+    // p.x can be Date/string, p.y is value
+    hoverPoint = {{ x: p.x, p: p.y }};
+    if (measuring) {{
+      deltaEnd = {{ x: p.x, p: p.y }};
+      drawDelta(deltaStart, deltaEnd);
+      setDeltaText(deltaStart, deltaEnd);
+    }}
+  }});
+
+  gd.on('plotly_unhover', () => {{
+    hoverPoint = null;
+  }});
+
+  // If mouse goes down while we are currently hovering a data point, start measuring.
+  // Otherwise allow pan drag.
+  gd.addEventListener('mousedown', (evt) => {{
+    if (hoverPoint) {{
+      measuring = true;
+      deltaStart = hoverPoint;
+      deltaEnd = hoverPoint;
+      drawDelta(deltaStart, deltaEnd);
+      setDeltaText(deltaStart, deltaEnd);
+      // Prevent Plotly from starting pan when measuring
+      evt.preventDefault();
+      evt.stopPropagation();
+    }}
+  }}, true);
+
+  window.addEventListener('mouseup', () => {{
+    if (measuring) {{
+      measuring = false;
+    }}
+  }});
+
+  btnClear.addEventListener('click', () => clearDelta());
+
+  btnReset.addEventListener('click', () => {{
+    clearDelta();
+    Plotly.relayout(gd, {{ 'xaxis.autorange': true, 'yaxis.autorange': true }});
+    // After autorange, refit y once the new x-range is known
+    setTimeout(() => {{
+      const xr = gd._fullLayout.xaxis.range;
+      if (xr && xr.length === 2) {{
+        refitY(new Date(xr[0]).getTime(), new Date(xr[1]).getTime());
+      }}
+    }}, 50);
+  }});
+
+}})();
+</script>
+</body>
+</html>
+"""
+
+components.html(html, height=690, scrolling=False)
 
 # -------------------------------------------------------------------
 # Volume + Stats
