@@ -143,7 +143,8 @@ def fetch_history(ticker: str, period: str, interval: str) -> pd.DataFrame:
         return pd.DataFrame()
 
     df = _normalize_yf_df(raw)
-    return df.dropna(how="any")
+    # Only require Date + Close; futures often have missing Volume and we don't want to drop price rows.
+    return df.dropna(subset=["Date", "Close"]) if "Close" in df.columns else df.dropna(subset=["Date"])
 
 with st.spinner(f"Loading {label}…"):
     df = fetch_history(ticker, period, interval)
@@ -223,18 +224,36 @@ else:
         fig.add_trace(line)
 
 # Volume panel (pro): embedded in the same Plotly figure
+# Note: Yahoo often reports very spiky volume for futures; one huge print can flatten the rest.
+# We clip only for *display* (hover still shows the real volume).
 if show_volume and "Volume" in df.columns:
+    vol_raw = pd.to_numeric(df["Volume"], errors="coerce").fillna(0.0).astype(float)
+
+    # Cap extreme spikes so the rest of the bars are visible
+    nonzero = vol_raw[vol_raw > 0]
+    if len(nonzero) >= 20:
+        cap = float(nonzero.quantile(0.99))
+    elif len(nonzero) > 0:
+        cap = float(nonzero.max())
+    else:
+        cap = 0.0
+
+    vol_plot = vol_raw.clip(upper=cap) if cap > 0 else vol_raw
+
     vol_colors = [
         "#26a69a" if float(c) >= float(o) else "#ef5350"
         for o, c in zip(df["Open"].astype(float), df["Close"].astype(float))
     ]
+
     fig.add_trace(
         go.Bar(
             x=df["Date"],
-            y=df["Volume"].astype(float),
+            y=vol_plot,
             name="Volume",
             marker=dict(color=vol_colors),
-            opacity=0.65,
+            opacity=0.70,
+            customdata=vol_raw,
+            hovertemplate="%{x}<br>Volume: %{customdata:,.0f}<extra></extra>",
         ),
         row=2,
         col=1,
@@ -256,7 +275,7 @@ fig.update_layout(
     dragmode="pan",
     margin=dict(l=30, r=30, t=40, b=40),
     xaxis=dict(
-        # title="Date",  # removed for subplot case
+        title="Date",
         type="date",
         autorange=True,
         showgrid=False,
@@ -283,8 +302,8 @@ fig.update_layout(
 # Label subplot axes when volume is enabled
 if show_volume and "Volume" in df.columns:
     fig.update_yaxes(title_text="Price", row=1, col=1)
-    fig.update_yaxes(title_text="Volume", row=2, col=1, tickformat=".2s")
-    fig.update_xaxes(title_text="", row=1, col=1)
+    fig.update_yaxes(title_text="Volume", row=2, col=1, tickformat=".2s", rangemode="tozero")
+    fig.update_xaxes(title_text=None, row=1, col=1)
     fig.update_xaxes(title_text="Date", row=2, col=1)
 
 # Pro chart only
