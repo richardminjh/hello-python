@@ -37,7 +37,6 @@ COMMODITIES: Dict[str, str] = {
     "Brent Crude (BZ=F)": "BZ=F",
     "Natural Gas (NG=F)": "NG=F",
     "Copper (HG=F)": "HG=F",
-    "Corn (ZC=F)": "ZC=F",
     "Wheat (ZW=F)": "ZW=F",
     "Soybeans (ZS=F)": "ZS=F",
     "Coffee (KC=F)": "KC=F",
@@ -205,18 +204,27 @@ else:
         )
     )
 
+# Format x-axis labels based on interval
+if interval == "1h":
+    x_tickformat = "%b %d\n%H:%M"
+    x_hoverformat = "%Y-%m-%d %H:%M"
+else:
+    x_tickformat = "%b %d\n%Y"
+    x_hoverformat = "%Y-%m-%d"
+
 fig.update_layout(
     template="plotly_dark",
     height=600,
     hovermode="x unified",
-    dragmode="zoom",
+    dragmode="pan",
     margin=dict(l=30, r=30, t=40, b=40),
     xaxis=dict(
         title="Date",
         type="date",
         showgrid=False,
         rangeslider=dict(visible=False),
-        tickformat="%b %d\n%Y",
+        tickformat=x_tickformat,
+        hoverformat=x_hoverformat,
         showspikes=True,
         spikemode="across",
         spikesnap="cursor",
@@ -241,6 +249,15 @@ st.plotly_chart(
         "scrollZoom": True,
         "displayModeBar": True,
         "displaylogo": False,
+        "modeBarButtonsToRemove": [
+            "zoom2d",
+            "select2d",
+            "lasso2d",
+            "zoomIn2d",
+            "zoomOut2d",
+            "autoScale2d",
+            "resetScale2d",
+        ],
     },
 )
 
