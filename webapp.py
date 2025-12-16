@@ -297,7 +297,7 @@ payload = {
     "label": label,
 }
 
-html = f"""
+html = """
 <!doctype html>
 <html>
 <head>
@@ -327,8 +327,8 @@ html = f"""
 </div>
 
 <script>
-(function() {{
-  const payload = {json.dumps(payload)};
+(function() {
+  const payload = __PAYLOAD__;
 
   const gd = document.getElementById('chart');
   const deltaBox = document.getElementById('delta');
@@ -522,11 +522,17 @@ html = f"""
     }}, 50);
   }});
 
-}})();
+})();
 </script>
 </body>
 </html>
 """
+
+# Convert f-string escaped braces back to normal JS/CSS braces
+html = html.replace("{{", "{").replace("}}", "}")
+
+# Inject the Python payload JSON into the JS placeholder
+html = html.replace("__PAYLOAD__", json.dumps(payload))
 
 components.html(html, height=690, scrolling=False)
 
