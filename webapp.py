@@ -332,7 +332,7 @@ fig.update_layout(
     height=640,
     hovermode="x unified",
     dragmode="pan",
-    margin=dict(l=30, r=30, t=40, b=90),
+    margin=dict(l=30, r=30, t=40, b=125),
     xaxis=dict(
         title="Date",
         type="date",
@@ -416,7 +416,7 @@ with chart_col:
         button {{ cursor:pointer; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.9); padding: 6px 10px; border-radius: 8px; font-size: 12px; }}
         button:hover {{ background: rgba(255,255,255,0.10); }}
         #delta {{ margin-left:auto; padding:6px 10px; border-radius: 8px; background: rgba(0,0,0,0.25); color: rgba(255,255,255,0.92); font-size: 12px; white-space: nowrap; }}
-        #chart {{ width: 100%; height: 460px; }}
+        #chart {{ width: 100%; height: 475px; }}
       </style>
     </head>
     <body>
@@ -662,7 +662,7 @@ with chart_col:
     html = html.replace("{{", "{").replace("}}", "}")
     # Inject the Python payload JSON into the JS placeholder
     html = html.replace("__PAYLOAD__", json.dumps(payload))
-    components.html(html, height=540, scrolling=False)
+    components.html(html, height=565, scrolling=False)
 
 # -------------------------------------------------------------------
 # Stats (prettier + more useful)
