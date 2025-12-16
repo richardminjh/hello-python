@@ -33,7 +33,7 @@ st.markdown(
     """
     <style>
       /* Make the app feel more "dashboard" (less vertical whitespace) */
-      .block-container { padding-top: 1.0rem; padding-bottom: 0.25rem; }
+      .block-container { padding-top: 1.0rem; padding-bottom: 0.15rem; }
       h1 { margin-bottom: 0.25rem !important; }
       h2, h3 { margin-top: 0.75rem !important; margin-bottom: 0.35rem !important; }
       .stCaption { margin-top: 0.15rem !important; margin-bottom: 0.35rem !important; }
