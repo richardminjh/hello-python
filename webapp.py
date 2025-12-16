@@ -267,13 +267,24 @@ else:
     x_tickformat = "%b %d\n%Y"
     x_hoverformat = "%Y-%m-%d"
 
+# Apply to ALL x-axes (covers subplot xaxis2 when volume is enabled)
+fig.update_xaxes(
+    tickformat=x_tickformat,
+    hoverformat=x_hoverformat,
+    showticklabels=True,
+    showspikes=True,
+    spikemode="across",
+    spikesnap="cursor",
+    showgrid=False,
+)
+
 fig.update_layout(
     template="plotly_dark",
     uirevision=f"{ticker}-{period}-{interval}-{show_ohlc}",
-    height=720,
+    height=760,
     hovermode="x unified",
     dragmode="pan",
-    margin=dict(l=30, r=30, t=40, b=40),
+    margin=dict(l=30, r=30, t=40, b=90),
     xaxis=dict(
         title="Date",
         type="date",
@@ -306,8 +317,13 @@ if show_volume and "Volume" in df.columns:
     fig.update_xaxes(title_text=None, row=1, col=1)
     fig.update_xaxes(title_text="Date", row=2, col=1)
 
-# Pro chart only
-st.subheader("Pro Chart (Yahoo-style)")
+# --- Pro chart title ---
+_name = label.split(" (")[0]  # e.g. "Gold"
+_months_map = {"1M": 1, "3M": 3, "6M": 6, "1Y": 12, "2Y": 24, "5Y": 60}
+_months = _months_map.get(period_ui)
+pro_title = f"{_months} month {_name} Futures" if _months else f"{period_ui} {_name} Futures"
+
+st.subheader(pro_title)
 st.caption("Hard range locks • Auto y-axis refit • Left-drag pan • Right-drag Δ measurement")
 
 # Serialize Plotly figure for the JS component
@@ -353,7 +369,7 @@ html = """
     button {{ cursor:pointer; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.9); padding: 6px 10px; border-radius: 8px; font-size: 12px; }}
     button:hover {{ background: rgba(255,255,255,0.10); }}
     #delta {{ margin-left:auto; padding:6px 10px; border-radius: 8px; background: rgba(0,0,0,0.25); color: rgba(255,255,255,0.92); font-size: 12px; white-space: nowrap; }}
-    #chart {{ width: 100%; height: 620px; }}
+    #chart {{ width: 100%; height: 700px; }}
   </style>
 </head>
 <body>
@@ -671,7 +687,7 @@ html = html.replace("{{", "{").replace("}}", "}")
 # Inject the Python payload JSON into the JS placeholder
 html = html.replace("__PAYLOAD__", json.dumps(payload))
 
-components.html(html, height=690, scrolling=False)
+components.html(html, height=780, scrolling=False)
 
 # -------------------------------------------------------------------
 # Stats
