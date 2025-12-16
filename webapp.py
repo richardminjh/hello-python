@@ -59,6 +59,50 @@ INTERVAL_MAP = {
     "Hourly": "1h",
 }
 
+def _normalize_yf_df(raw: pd.DataFrame) -> pd.DataFrame:
+    """Normalize yfinance output across versions/edge-cases.
+
+    - Flattens MultiIndex columns like ('Open','GC=F') -> 'Open'
+    - Resets index to a 'Date' column (handles 'Date'/'Datetime'/'index')
+    - Forces OHLCV columns to numeric
+    """
+    df = raw.copy()
+
+    # Flatten MultiIndex columns if present
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = [str(c[0]) for c in df.columns]
+
+    # Bring the datetime index into a column
+    df = df.reset_index()
+
+    # Identify the datetime column name after reset_index
+    if "Date" in df.columns:
+        dt_col = "Date"
+    elif "Datetime" in df.columns:
+        dt_col = "Datetime"
+    elif "index" in df.columns:
+        dt_col = "index"
+    else:
+        # Fall back: pick the first column that looks datetime-like
+        dt_col = df.columns[0]
+
+    df = df.rename(columns={dt_col: "Date"})
+
+    # Ensure timezone-naive datetimes for Plotly candlesticks
+    df["Date"] = pd.to_datetime(df["Date"], errors="coerce").dt.tz_localize(None)
+
+    # Force OHLCV columns to numeric if they exist
+    for col in ["Open", "High", "Low", "Close", "Adj Close", "Volume"]:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    # Drop rows with no datetime or no close
+    df = df.dropna(subset=["Date"])
+    if "Close" in df.columns:
+        df = df.dropna(subset=["Close"])
+
+    return df
+
 # -------------------------------------------------------------------
 # Sidebar
 # -------------------------------------------------------------------
@@ -81,18 +125,22 @@ interval = INTERVAL_MAP[interval_ui]
 # -------------------------------------------------------------------
 @st.cache_data(ttl=60)
 def fetch_history(ticker: str, period: str, interval: str) -> pd.DataFrame:
-    df = yf.download(
-        ticker,
-        period=period,
-        interval=interval,
-        auto_adjust=False,
-        progress=False,
-    )
-    if df is None or df.empty:
+    try:
+        raw = yf.download(
+            ticker,
+            period=period,
+            interval=interval,
+            auto_adjust=False,
+            progress=False,
+        )
+    except Exception:
         return pd.DataFrame()
-    df = df.reset_index()
-    df["Date"] = pd.to_datetime(df["Date"]).dt.tz_localize(None)
-    return df.dropna()
+
+    if raw is None or raw.empty:
+        return pd.DataFrame()
+
+    df = _normalize_yf_df(raw)
+    return df.dropna(how="any")
 
 with st.spinner(f"Loading {label}…"):
     df = fetch_history(ticker, period, interval)
@@ -136,11 +184,11 @@ fig = go.Figure()
 if show_ohlc:
     fig.add_trace(
         go.Candlestick(
-            x=df["Date"],
-            open=df["Open"],
-            high=df["High"],
-            low=df["Low"],
-            close=df["Close"],
+            x=df["Date"].astype("datetime64[ns]"),
+            open=df["Open"].astype(float),
+            high=df["High"].astype(float),
+            low=df["Low"].astype(float),
+            close=df["Close"].astype(float),
             name=label,
             increasing_line_color="#26a69a",
             decreasing_line_color="#ef5350",
@@ -181,6 +229,8 @@ fig.update_layout(
         showspikes=True,
         spikemode="across",
         spikesnap="cursor",
+        autorange=True,
+        fixedrange=False,
     ),
 )
 
