@@ -471,7 +471,7 @@ with chart_col:
         <span id="pill">Drag blank space = pan • Scroll = zoom • Drag on candle/line = Δ</span>
         <button id="btnReset">Reset view</button>
         <button id="btnClear">Clear Δ</button>
-        <div id="delta">Δ: —</div>
+        <div id="delta"></div>
       </div>
       <div id="chart"></div>
     </div>
@@ -527,7 +527,8 @@ with chart_col:
         return ta <= tb ? [a, b] : [b, a];
       }}
       function setDeltaText(start, end) {{
-        if (!start || !end) {{ deltaBox.textContent = 'Δ: —'; return; }}
+        if (!start || !end) { deltaBox.textContent = ''; deltaBox.style.opacity = 0; return; }
+  deltaBox.style.opacity = 1;
         const ordered = orderPointsByX(start, end);
         start = ordered[0];
         end = ordered[1];
