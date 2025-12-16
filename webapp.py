@@ -274,9 +274,9 @@ if not measure_mode:
 selected_points = None
 
 if measure_mode and plotly_events is not None:
+    # NOTE: streamlit-plotly-events versions differ; many do not support `config=`.
     selected_points = plotly_events(
         fig,
-        config=chart_config,
         select_event=True,
         click_event=False,
         override_height=600,
