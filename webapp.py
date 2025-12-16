@@ -28,6 +28,22 @@ st.set_page_config(
     layout="wide",
 )
 
+# --- Tighten vertical spacing globally ---
+st.markdown(
+    """
+    <style>
+      /* Make the app feel more "dashboard" (less vertical whitespace) */
+      .block-container { padding-top: 1.2rem; padding-bottom: 1.0rem; }
+      h1 { margin-bottom: 0.25rem !important; }
+      h2, h3 { margin-top: 0.75rem !important; margin-bottom: 0.35rem !important; }
+      .stCaption { margin-top: 0.15rem !important; margin-bottom: 0.35rem !important; }
+      /* Slightly tighten default element gaps */
+      div[data-testid="stVerticalBlock"] > div { gap: 0.55rem; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 st.title("📈 Commodities Dashboard")
 st.caption("Yahoo Finance (via yfinance) • Interactive charts via Plotly")
 
@@ -310,7 +326,7 @@ fig.update_xaxes(
 fig.update_layout(
     template="plotly_dark",
     uirevision=f"{ticker}-{period}-{interval}-{show_ohlc}",
-    height=760,
+    height=640,
     hovermode="x unified",
     dragmode="pan",
     margin=dict(l=30, r=30, t=40, b=90),
@@ -396,7 +412,7 @@ html = """
     button {{ cursor:pointer; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.9); padding: 6px 10px; border-radius: 8px; font-size: 12px; }}
     button:hover {{ background: rgba(255,255,255,0.10); }}
     #delta {{ margin-left:auto; padding:6px 10px; border-radius: 8px; background: rgba(0,0,0,0.25); color: rgba(255,255,255,0.92); font-size: 12px; white-space: nowrap; }}
-    #chart {{ width: 100%; height: 700px; }}
+    #chart {{ width: 100%; height: 560px; }}
   </style>
 </head>
 <body>
@@ -714,7 +730,7 @@ html = html.replace("{{", "{").replace("}}", "}")
 # Inject the Python payload JSON into the JS placeholder
 html = html.replace("__PAYLOAD__", json.dumps(payload))
 
-components.html(html, height=780, scrolling=False)
+components.html(html, height=640, scrolling=False)
 
 # -------------------------------------------------------------------
 # Stats (prettier + more useful)
@@ -722,15 +738,15 @@ components.html(html, height=780, scrolling=False)
 st.markdown("""
 <style>
   .stats-wrap {
-    margin-top: 18px;
-    padding: 18px 18px 16px 18px;
+    margin-top: 10px;
+    padding: 14px 16px 12px 16px;
     border-radius: 16px;
     border: 1px solid rgba(255,255,255,0.10);
     background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
     box-shadow: 0 10px 30px rgba(0,0,0,0.25);
   }
-  .stats-title { font-size: 24px; font-weight: 850; margin: 0 0 12px 0; }
-  .stats-sub { color: rgba(255,255,255,0.70); font-size: 12px; margin: 0 0 14px 0; }
+  .stats-title { font-size: 22px; font-weight: 850; margin: 0 0 8px 0; }
+  .stats-sub { color: rgba(255,255,255,0.70); font-size: 12px; margin: 0 0 10px 0; }
   .stats-spacer { height: 10px; }
 </style>
 """, unsafe_allow_html=True)
@@ -814,4 +830,4 @@ row2[3].metric("Last Volume", f"{last_vol:,.0f}" if pd.notna(last_vol) else "—
 row2[4].metric("Skew (rets)", f"{float(_ret.skew()):,.2f}" if len(_ret) > 5 else "—")
 row2[5].metric("Kurtosis (rets)", f"{float(_ret.kurtosis()):,.2f}" if len(_ret) > 5 else "—")
 
-st.caption("Tip: metrics are computed from the displayed series (simple returns).")
+st.markdown("<div style='opacity:0.7; font-size:12px; margin-top:6px;'>Tip: metrics are computed from the displayed series (simple returns).</div>", unsafe_allow_html=True)
