@@ -375,10 +375,10 @@ fig.update_xaxes(
 fig.update_layout(
     template="plotly_dark",
     uirevision=f"{ticker}-{period}-{interval}-{show_ohlc}",
-    height=640,
+    height=600,
     hovermode="x unified",
     dragmode="pan",
-    margin=dict(l=30, r=30, t=40, b=155),
+    margin=dict(l=30, r=30, t=40, b=135),
     xaxis=dict(
         title="Date",
         type="date",
