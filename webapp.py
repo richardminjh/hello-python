@@ -187,41 +187,87 @@ else:
 hi = float(df["High"].max().item())
 lo = float(df["Low"].min().item())
 
-# --- colored metrics for change ---
+# --- unified top metrics (same size + bold; only Change colors differ) ---
 POS_COL = "#6ee7b7"  # light green
 NEG_COL = "#fca5a5"  # light red
-NEU_COL = "rgba(255,255,255,0.85)"
+NEU_COL = "rgba(255,255,255,0.92)"
+
+_last_txt = f"{last:,.2f}"
+_chg_txt = f"{chg:+,.2f}" if chg is not None else "—"
+_pct_txt = f"{chg_pct:+.2f}%" if chg_pct is not None else "—"
+_hi_txt = f"{hi:,.2f}"
+_lo_txt = f"{lo:,.2f}"
+
+_chg_col = POS_COL if (chg is not None and chg >= 0) else (NEG_COL if chg is not None else NEU_COL)
+_pct_col = POS_COL if (chg_pct is not None and chg_pct >= 0) else (NEG_COL if chg_pct is not None else NEU_COL)
+
+st.markdown(
+    """
+    <style>
+      .top-metrics { margin-top: 2px; margin-bottom: 2px; }
+      .tm-label { font-size: 13px; opacity: 0.80; margin-bottom: 6px; }
+      .tm-value { font-size: 34px; font-weight: 800; line-height: 1.08; letter-spacing: 0.2px; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 c1, c2, c3, c4, c5 = st.columns(5)
 
-c1.metric("Last", f"{last:,.2f}")
+with c1:
+    st.markdown(
+        f"""
+        <div class='top-metrics'>
+          <div class='tm-label'>Last</div>
+          <div class='tm-value' style='color:{NEU_COL};'>{_last_txt}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-# Change (colored)
 with c2:
-    _chg_txt = f"{chg:+,.2f}" if chg is not None else "—"
-    _chg_col = POS_COL if (chg is not None and chg >= 0) else (NEG_COL if chg is not None else NEU_COL)
     st.markdown(
         f"""
-        <div style='font-size:14px; opacity:0.85; margin-bottom:4px;'>Change</div>
-        <div style='font-size:34px; font-weight:750; color:{_chg_col}; line-height:1.1;'>{_chg_txt}</div>
+        <div class='top-metrics'>
+          <div class='tm-label'>Change</div>
+          <div class='tm-value' style='color:{_chg_col};'>{_chg_txt}</div>
+        </div>
         """,
         unsafe_allow_html=True,
     )
 
-# Change % (colored)
 with c3:
-    _pct_txt = f"{chg_pct:+.2f}%" if chg_pct is not None else "—"
-    _pct_col = POS_COL if (chg_pct is not None and chg_pct >= 0) else (NEG_COL if chg_pct is not None else NEU_COL)
     st.markdown(
         f"""
-        <div style='font-size:14px; opacity:0.85; margin-bottom:4px;'>Change %</div>
-        <div style='font-size:34px; font-weight:750; color:{_pct_col}; line-height:1.1;'>{_pct_txt}</div>
+        <div class='top-metrics'>
+          <div class='tm-label'>Change %</div>
+          <div class='tm-value' style='color:{_pct_col};'>{_pct_txt}</div>
+        </div>
         """,
         unsafe_allow_html=True,
     )
 
-c4.metric("Period High", f"{hi:,.2f}")
-c5.metric("Period Low", f"{lo:,.2f}")
+with c4:
+    st.markdown(
+        f"""
+        <div class='top-metrics'>
+          <div class='tm-label'>Period High</div>
+          <div class='tm-value' style='color:{NEU_COL};'>{_hi_txt}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+with c5:
+    st.markdown(
+        f"""
+        <div class='top-metrics'>
+          <div class='tm-label'>Period Low</div>
+          <div class='tm-value' style='color:{NEU_COL};'>{_lo_txt}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 st.caption(f"Last refresh: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}")
 
@@ -416,7 +462,7 @@ with chart_col:
         button {{ cursor:pointer; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.9); padding: 6px 10px; border-radius: 8px; font-size: 12px; }}
         button:hover {{ background: rgba(255,255,255,0.10); }}
         #delta {{ margin-left:auto; padding:6px 10px; border-radius: 8px; background: rgba(0,0,0,0.25); color: rgba(255,255,255,0.92); font-size: 12px; white-space: nowrap; }}
-        #chart {{ width: 100%; height: 510px; }}
+        #chart {{ width: 100%; height: 545px; }}
       </style>
     </head>
     <body>
@@ -662,62 +708,61 @@ with chart_col:
     html = html.replace("{{", "{").replace("}}", "}")
     # Inject the Python payload JSON into the JS placeholder
     html = html.replace("__PAYLOAD__", json.dumps(payload))
-    components.html(html, height=605, scrolling=False)
+    components.html(html, height=660, scrolling=False)
 
 # -------------------------------------------------------------------
 # Stats (prettier + more useful)
 # -------------------------------------------------------------------
 with stats_col:
-    st.markdown("""
-    <style>
-      .stats-wrap {
-        margin-top: 0px;
-        padding: 12px 14px 10px 14px;
-        border-radius: 14px;
-        border: 1px solid rgba(255,255,255,0.10);
-        background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
-        box-shadow: 0 10px 30px rgba(0,0,0,0.22);
-      }
-      .stats-title { font-size: 18px; font-weight: 850; margin: 0 0 6px 0; }
-      .stats-sub { color: rgba(255,255,255,0.70); font-size: 11px; margin: 0 0 8px 0; }
-      .stats-spacer { height: 6px; }
-
-      /* Make Streamlit metrics more compact */
-      div[data-testid="stMetric"] { padding: 0px !important; }
-      div[data-testid="stMetricLabel"] p { font-size: 12px !important; opacity: 0.9; }
-      div[data-testid="stMetricValue"] { font-size: 22px !important; }
-      div[data-testid="stMetricDelta"] { font-size: 12px !important; }
-    </style>
-    """, unsafe_allow_html=True)
-
     st.markdown(
-        f"""
-    <div class="stats-wrap">
-      <div class="stats-title">Stats</div>
-      <div class="stats-sub">Baked from the currently selected series (period={period_ui}, interval={interval_ui}).</div>
-    </div>
-    """,
+        """
+        <style>
+          .stats-panel {
+            height: 660px;                 /* match components.html height */
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            padding-top: 2px;
+          }
+          .stats-head {
+            font-size: 22px;
+            font-weight: 850;
+            margin: 0 0 6px 0;
+          }
+          .stats-sub {
+            font-size: 11px;
+            color: rgba(255,255,255,0.70);
+            margin: 0 0 14px 0;
+          }
+          .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            column-gap: 22px;
+            row-gap: 18px;                 /* “poof out” spacing */
+          }
+          .stat-k { font-size: 12px; opacity: 0.85; margin-bottom: 6px; }
+          .stat-v { font-size: 22px; font-weight: 800; line-height: 1.05; }
+          .stats-tip {
+            margin-top: auto;              /* pins to bottom */
+            font-size: 11px;
+            opacity: 0.65;
+            padding-bottom: 2px;
+          }
+        </style>
+        """,
         unsafe_allow_html=True,
     )
-    st.markdown('<div class="stats-spacer"></div>', unsafe_allow_html=True)
 
-    # --- core series ---
     _close = df["Close"].astype(float).dropna()
     _ret = _close.pct_change().dropna()
 
-    if interval == "1h":
-        # Rough trading assumption for futures: ~24 hourly bars per day
-        ann_factor = 252 * 24
-    else:
-        ann_factor = 252
+    ann_factor = 252 * 24 if interval == "1h" else 252
 
-    # --- headline stats ---
     period_return = float((_close.iloc[-1] / _close.iloc[0] - 1.0)) if len(_close) >= 2 else float("nan")
     vol_ann = float(_ret.std() * (ann_factor ** 0.5)) if len(_ret) >= 2 else float("nan")
     ret_ann = float(_ret.mean() * ann_factor) if len(_ret) >= 1 else float("nan")
     sharpe_0rf = float(ret_ann / vol_ann) if (pd.notna(ret_ann) and pd.notna(vol_ann) and vol_ann != 0) else float("nan")
 
-    # Max drawdown
     if len(_close) >= 2:
         _cummax = _close.cummax()
         _dd = _close / _cummax - 1.0
@@ -725,7 +770,6 @@ with stats_col:
     else:
         max_dd = float("nan")
 
-    # ATR(14)
     atr14 = float("nan")
     if all(c in df.columns for c in ["High", "Low", "Close"]):
         h = df["High"].astype(float)
@@ -735,7 +779,6 @@ with stats_col:
         tr = pd.concat([(h - l).abs(), (h - prev_c).abs(), (l - prev_c).abs()], axis=1).max(axis=1)
         atr14 = float(tr.rolling(14).mean().iloc[-1]) if tr.dropna().shape[0] >= 14 else float("nan")
 
-    # RSI(14)
     rsi14 = float("nan")
     if len(_close) >= 15:
         delta = _close.diff()
@@ -745,33 +788,55 @@ with stats_col:
         rsi = 100 - (100 / (1 + rs))
         rsi14 = float(rsi.iloc[-1])
 
-    # Range + last volume
     rng_abs = float(hi - lo)
     rng_pct = float((hi / lo - 1.0)) if lo != 0 else float("nan")
+
     last_vol = float("nan")
     if "Volume" in df.columns and not df["Volume"].dropna().empty:
         last_vol = float(pd.to_numeric(df["Volume"], errors="coerce").dropna().iloc[-1])
 
-    # --- display: compact 6x2 grid of metrics ---
+    skew_rets = float(_ret.skew()) if len(_ret) > 5 else float("nan")
+    kurt_rets = float(_ret.kurtosis()) if len(_ret) > 5 else float("nan")
+
+    def _fmt(v, kind: str) -> str:
+        if pd.isna(v):
+            return "—"
+        if kind == "pct2":
+            return f"{v * 100:,.2f}%"
+        if kind == "num2":
+            return f"{v:,.2f}"
+        if kind == "num1":
+            return f"{v:,.1f}"
+        if kind == "int":
+            return f"{v:,.0f}"
+        return str(v)
+
     tiles = [
-        ("Period Return", f"{period_return * 100:,.2f}%" if pd.notna(period_return) else "—"),
-        ("Ann. Vol", f"{vol_ann * 100:,.2f}%" if pd.notna(vol_ann) else "—"),
-        ("Ann. Return", f"{ret_ann * 100:,.2f}%" if pd.notna(ret_ann) else "—"),
-        ("Sharpe (0% rf)", f"{sharpe_0rf:,.2f}" if pd.notna(sharpe_0rf) else "—"),
-        ("Max Drawdown", f"{max_dd * 100:,.2f}%" if pd.notna(max_dd) else "—"),
-        ("ATR(14)", f"{atr14:,.2f}" if pd.notna(atr14) else "—"),
-        ("Range", f"{rng_abs:,.2f}"),
-        ("Range %", f"{rng_pct * 100:,.2f}%" if pd.notna(rng_pct) else "—"),
-        ("RSI(14)", f"{rsi14:,.1f}" if pd.notna(rsi14) else "—"),
-        ("Last Volume", f"{last_vol:,.0f}" if pd.notna(last_vol) else "—"),
-        ("Skew (rets)", f"{float(_ret.skew()):,.2f}" if len(_ret) > 5 else "—"),
-        ("Kurtosis (rets)", f"{float(_ret.kurtosis()):,.2f}" if len(_ret) > 5 else "—"),
+        ("Period Return", _fmt(period_return, "pct2")),
+        ("Ann. Vol", _fmt(vol_ann, "pct2")),
+        ("Ann. Return", _fmt(ret_ann, "pct2")),
+        ("Sharpe (0% rf)", _fmt(sharpe_0rf, "num2")),
+        ("Max Drawdown", _fmt(max_dd, "pct2")),
+        ("ATR(14)", _fmt(atr14, "num2")),
+        ("Range", _fmt(rng_abs, "num2")),
+        ("Range %", _fmt(rng_pct, "pct2")),
+        ("RSI(14)", _fmt(rsi14, "num1")),
+        ("Last Volume", _fmt(last_vol, "int")),
+        ("Skew (rets)", _fmt(skew_rets, "num2")),
+        ("Kurtosis (rets)", _fmt(kurt_rets, "num2")),
     ]
 
-    for i in range(0, len(tiles), 2):
-        r = st.columns(2, gap="large")
-        r[0].metric(tiles[i][0], tiles[i][1])
-        if i + 1 < len(tiles):
-            r[1].metric(tiles[i + 1][0], tiles[i + 1][1])
-
-    st.markdown("<div style='opacity:0.65; font-size:11px; margin-top:6px;'>Tip: metrics are computed from the displayed series (simple returns).</div>", unsafe_allow_html=True)
+    html_stats = (
+        f"<div class='stats-panel'>"
+        f"  <div class='stats-head'>Stats</div>"
+        f"  <div class='stats-sub'>Baked from the currently selected series (period={period_ui}, interval={interval_ui}).</div>"
+        f"  <div class='stats-grid'>"
+    )
+    for k, v in tiles:
+        html_stats += f"<div><div class='stat-k'>{k}</div><div class='stat-v'>{v}</div></div>"
+    html_stats += (
+        f"  </div>"
+        f"  <div class='stats-tip'>Tip: metrics are computed from the displayed series (simple returns).</div>"
+        f"</div>"
+    )
+    st.markdown(html_stats, unsafe_allow_html=True)
