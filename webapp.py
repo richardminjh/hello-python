@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Dict
+import logging
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -44,6 +45,9 @@ st.set_page_config(page_title="Commodities Dashboard", layout="wide")
 st.title("📈 Commodities Dashboard")
 st.caption("Data: Yahoo Finance (via yfinance) • Interactive charts via Plotly")
 
+# Quiet noisy yfinance logs in the UI/server logs
+logging.getLogger("yfinance").setLevel(logging.CRITICAL)
+
 
 @st.cache_data(ttl=60)
 def fetch_history(ticker: str, period: str, interval: str) -> pd.DataFrame:
@@ -54,12 +58,13 @@ def fetch_history(ticker: str, period: str, interval: str) -> pd.DataFrame:
             interval=interval,
             auto_adjust=False,
             actions=False,
-            repair=True,
             progress=False,
             threads=True,
         )
-    except Exception:
-        return pd.DataFrame()
+    except Exception as e:
+        out = pd.DataFrame()
+        out.attrs["error"] = str(e)
+        return out
 
     if df is None or df.empty:
         return pd.DataFrame()
@@ -102,9 +107,32 @@ ticker = COMMODITIES[label]
 period = PERIOD_MAP[period_ui]
 interval = INTERVAL_MAP[interval_ui]
 
+# Yahoo limitation: intraday intervals (e.g. 15m/1h) only support recent windows.
+if interval in {"15m", "1h"} and period not in {"1mo", "3mo"}:
+    st.warning("Intraday intervals only work for recent windows on Yahoo. Switching Period to 3M.")
+    period_ui = "3M"
+    period = PERIOD_MAP[period_ui]
+
 st.info(f"Loading {label} ({ticker}) • period={period_ui} • interval={interval_ui}")
 with st.spinner("Fetching data from Yahoo Finance..."):
     df = fetch_history(ticker, period, interval)
+
+if df.empty:
+    err = df.attrs.get("error") if hasattr(df, "attrs") else None
+    if err:
+        st.error(
+            "Data fetch failed. This is usually a dependency or Yahoo limitation.\n\n"
+            f"**Details:** {err}\n\n"
+            "Try: switch Interval to Daily, switch Period to 1M/3M, or refresh. "
+            "If deploying: ensure `requirements.txt` includes `scipy` if you want repair-mode."
+        )
+    else:
+        st.error(
+            f"No data returned for {label} ({ticker}).\n\n"
+            "This can happen with futures tickers on Yahoo (temporary throttling/outages).\n"
+            "Try: (1) switch Interval to Daily, (2) switch Period to 1M/3M, or (3) refresh."
+        )
+    st.stop()
 
 m = metrics_from_df(df)
 
@@ -119,14 +147,6 @@ c5.metric("Period Low", "—" if m["lo"] is None else f"{m['lo']:,.2f}")
 st.caption(f"Last refresh: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}")
 
 # ---- Chart ----
-if df.empty:
-    st.error(
-        f"No data returned for {label} ({ticker}).\n\n"
-        "This can happen with futures tickers on Yahoo (temporary throttling/outages).\n"
-        "Try: (1) switch Interval to Daily, (2) switch Period to 1M/3M, or (3) refresh."
-    )
-    st.stop()
-
 fig = go.Figure()
 
 if show_ohlc and {"Open", "High", "Low", "Close"}.issubset(df.columns):
