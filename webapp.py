@@ -171,10 +171,39 @@ else:
 hi = float(df["High"].max().item())
 lo = float(df["Low"].min().item())
 
+# --- colored metrics for change ---
+POS_COL = "#6ee7b7"  # light green
+NEG_COL = "#fca5a5"  # light red
+NEU_COL = "rgba(255,255,255,0.85)"
+
 c1, c2, c3, c4, c5 = st.columns(5)
+
 c1.metric("Last", f"{last:,.2f}")
-c2.metric("Change", f"{chg:,.2f}" if chg is not None else "—")
-c3.metric("Change %", f"{chg_pct:.2f}%" if chg_pct is not None else "—")
+
+# Change (colored)
+with c2:
+    _chg_txt = f"{chg:+,.2f}" if chg is not None else "—"
+    _chg_col = POS_COL if (chg is not None and chg >= 0) else (NEG_COL if chg is not None else NEU_COL)
+    st.markdown(
+        f"""
+        <div style='font-size:14px; opacity:0.85; margin-bottom:4px;'>Change</div>
+        <div style='font-size:34px; font-weight:750; color:{_chg_col}; line-height:1.1;'>{_chg_txt}</div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+# Change % (colored)
+with c3:
+    _pct_txt = f"{chg_pct:+.2f}%" if chg_pct is not None else "—"
+    _pct_col = POS_COL if (chg_pct is not None and chg_pct >= 0) else (NEG_COL if chg_pct is not None else NEU_COL)
+    st.markdown(
+        f"""
+        <div style='font-size:14px; opacity:0.85; margin-bottom:4px;'>Change %</div>
+        <div style='font-size:34px; font-weight:750; color:{_pct_col}; line-height:1.1;'>{_pct_txt}</div>
+        """,
+        unsafe_allow_html=True,
+    )
+
 c4.metric("Period High", f"{hi:,.2f}")
 c5.metric("Period Low", f"{lo:,.2f}")
 
@@ -772,12 +801,12 @@ row1[4].metric("Max Drawdown", f"{max_dd * 100:,.2f}%" if pd.notna(max_dd) else 
 row1[5].metric("ATR(14)", f"{atr14:,.2f}" if pd.notna(atr14) else "—")
 
 row2 = st.columns(6)
-row2[0].metric("Period High", f"{hi:,.2f}")
-row2[1].metric("Period Low", f"{lo:,.2f}")
-row2[2].metric("Range", f"{rng_abs:,.2f}")
-row2[3].metric("Range %", f"{rng_pct * 100:,.2f}%" if pd.notna(rng_pct) else "—")
-row2[4].metric("RSI(14)", f"{rsi14:,.1f}" if pd.notna(rsi14) else "—")
-row2[5].metric("Last Volume", f"{last_vol:,.0f}" if pd.notna(last_vol) else "—")
+row2[0].metric("Range", f"{rng_abs:,.2f}")
+row2[1].metric("Range %", f"{rng_pct * 100:,.2f}%" if pd.notna(rng_pct) else "—")
+row2[2].metric("RSI(14)", f"{rsi14:,.1f}" if pd.notna(rsi14) else "—")
+row2[3].metric("ATR(14)", f"{atr14:,.2f}" if pd.notna(atr14) else "—")
+row2[4].metric("Skew (rets)", f"{float(_ret.skew()):,.2f}" if len(_ret) > 5 else "—")
+row2[5].metric("Kurtosis (rets)", f"{float(_ret.kurtosis()):,.2f}" if len(_ret) > 5 else "—")
 
 st.divider()
 
@@ -797,11 +826,38 @@ if len(_ret) > 0:
 stats_tbl.index = stats_tbl.index.astype(str)
 stats_tbl = stats_tbl.rename_axis("Metric")
 
+# Make the table readable (rounded + nice labels)
+stats_show = stats_tbl.copy()
+
+if "Close" in stats_show.columns:
+    for idx in stats_show.index:
+        try:
+            v = float(stats_show.loc[idx, "Close"])
+        except Exception:
+            continue
+
+        if str(idx) == "count":
+            stats_show.loc[idx, "Close"] = int(round(v))
+        else:
+            stats_show.loc[idx, "Close"] = round(v, 2)
+
+pretty_index = {
+    "count": "Count",
+    "mean": "Mean",
+    "std": "Std Dev",
+    "min": "Min",
+    "25%": "25%",
+    "50%": "Median (50%)",
+    "75%": "75%",
+    "max": "Max",
+    "skew": "Skew (returns)",
+    "kurtosis": "Kurtosis (returns)",
+}
+stats_show = stats_show.rename(index=pretty_index)
+stats_show = stats_show.rename_axis("Metric")
+
 st.dataframe(
-    stats_tbl.style.format(
-        {
-            "Close": "{:,.4f}",
-        }
-    ),
+    stats_show,
     width="stretch",
+    hide_index=False,
 )
