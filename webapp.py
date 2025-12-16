@@ -10,6 +10,11 @@ import plotly.graph_objects as go
 import streamlit as st
 import yfinance as yf
 
+try:
+    from streamlit_plotly_events import plotly_events
+except Exception:
+    plotly_events = None
+
 # -------------------------------------------------------------------
 # Environment safety
 # -------------------------------------------------------------------
@@ -115,6 +120,11 @@ with st.sidebar:
     show_ohlc = st.toggle("Candlesticks (OHLC)", value=True)
     show_volume = st.toggle("Show Volume", value=False)
 
+    measure_mode = st.toggle("Measure Δ (click-drag on chart)", value=False)
+
+    if measure_mode and plotly_events is None:
+        st.warning("Install streamlit-plotly-events to enable measurement:  pip install streamlit-plotly-events")
+
 ticker = COMMODITIES[label]
 period = PERIOD_MAP[period_ui]
 interval = INTERVAL_MAP[interval_ui]
@@ -217,7 +227,7 @@ fig.update_layout(
     uirevision=f"{ticker}-{period}-{interval}-{show_ohlc}",
     height=600,
     hovermode="x unified",
-    dragmode="pan",
+    dragmode=("select" if measure_mode else "pan"),
     margin=dict(l=30, r=30, t=40, b=40),
     xaxis=dict(
         title="Date",
@@ -244,22 +254,70 @@ fig.update_layout(
     ),
 )
 
-st.plotly_chart(
-    fig,
-    width="stretch",
-    config={
-        "scrollZoom": True,
-        "displayModeBar": True,
-        "displaylogo": False,
-        "modeBarButtonsToRemove": [
-            "zoom2d",
-            "select2d",
-            "lasso2d",
-            "zoomIn2d",
-            "zoomOut2d",
-        ],
-    },
-)
+chart_config = {
+    "scrollZoom": True,
+    "displayModeBar": True,
+    "displaylogo": False,
+    "modeBarButtonsToRemove": [
+        "zoom2d",
+        "lasso2d",
+        "zoomIn2d",
+        "zoomOut2d",
+    ],
+}
+
+# In pan mode, remove select tool from the modebar.
+# In measure mode, keep select tool.
+if not measure_mode:
+    chart_config["modeBarButtonsToRemove"].append("select2d")
+
+selected_points = None
+
+if measure_mode and plotly_events is not None:
+    selected_points = plotly_events(
+        fig,
+        config=chart_config,
+        select_event=True,
+        click_event=False,
+        override_height=600,
+        override_width="100%",
+        key=f"plotly-{ticker}-{period}-{interval}-{show_ohlc}-{measure_mode}",
+    )
+else:
+    st.plotly_chart(
+        fig,
+        width="stretch",
+        config=chart_config,
+    )
+
+# If user selected a range of candles/points, compute delta
+if selected_points:
+    # selected_points items contain x (datetime) and y (price)
+    xs = [p.get("x") for p in selected_points if p.get("x") is not None]
+    if len(xs) >= 2:
+        x0 = pd.to_datetime(min(xs)).to_datetime64()
+        x1 = pd.to_datetime(max(xs)).to_datetime64()
+
+        # Find nearest closes to endpoints
+        tmp = df[["Date", "Close"]].dropna().copy()
+        tmp["Date"] = pd.to_datetime(tmp["Date"]).astype("datetime64[ns]")
+
+        p0 = float(tmp.loc[(tmp["Date"] - x0).abs().idxmin(), "Close"])
+        p1 = float(tmp.loc[(tmp["Date"] - x1).abs().idxmin(), "Close"])
+
+        d_abs = p1 - p0
+        d_pct = (d_abs / p0) * 100 if p0 != 0 else None
+
+        st.success(
+            f"Δ from {pd.to_datetime(x0).strftime('%Y-%m-%d %H:%M')} → {pd.to_datetime(x1).strftime('%Y-%m-%d %H:%M')}: "
+            f"{d_abs:+.2f} ({d_pct:+.2f}%)"
+            if d_pct is not None
+            else f"Δ from {pd.to_datetime(x0).strftime('%Y-%m-%d %H:%M')} → {pd.to_datetime(x1).strftime('%Y-%m-%d %H:%M')}: {d_abs:+.2f}"
+        )
+    else:
+        st.info("Drag-select at least two points to compute Δ.")
+elif measure_mode and plotly_events is not None:
+    st.caption("Tip: drag a box over candles to measure Δ. Toggle off to return to pan.")
 
 # -------------------------------------------------------------------
 # Volume + Stats
