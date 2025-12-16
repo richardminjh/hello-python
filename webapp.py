@@ -218,6 +218,7 @@ else:
 
 fig.update_layout(
     template="plotly_dark",
+    uirevision=f"{ticker}-{period}-{interval}-{show_ohlc}",
     height=600,
     hovermode="x unified",
     dragmode="pan",
@@ -225,7 +226,7 @@ fig.update_layout(
     xaxis=dict(
         title="Date",
         type="date",
-        range=[x_min, x_max],
+        autorange=True,
         minallowed=x_min,
         maxallowed=x_max,
         showgrid=False,
@@ -275,31 +276,35 @@ with colA:
     if show_volume and "Volume" in df.columns:
         st.subheader("Volume")
 
-        vfig = go.Figure(
-            data=[
-                go.Bar(
-                    x=df["Date"],
-                    y=df["Volume"].astype(float),
-                    name="Volume",
-                )
-            ]
+        vfig = go.Figure()
+        vfig.add_trace(
+            go.Bar(
+                x=df["Date"],
+                y=df["Volume"].astype(float),
+                name="Volume",
+                marker_color="#546e7a",
+            )
         )
 
         vfig.update_layout(
             template="plotly_dark",
+            uirevision=f"{ticker}-{period}-{interval}-vol",
             height=250,
             margin=dict(l=30, r=30, t=30, b=30),
+            dragmode="pan",
             xaxis=dict(
                 type="date",
-                range=[x_min, x_max],
+                autorange=True,
                 minallowed=x_min,
                 maxallowed=x_max,
                 showgrid=False,
+                fixedrange=False,
                 rangeslider=dict(visible=False),
             ),
             yaxis=dict(
                 showgrid=False,
-                title="",
+                fixedrange=False,
+                title="Volume",
             ),
         )
 
