@@ -104,15 +104,20 @@ if df.empty:
 # -------------------------------------------------------------------
 # Metrics
 # -------------------------------------------------------------------
-close = df["Close"]
-last = close.iloc[-1]
-prev = close.iloc[-2] if len(close) > 1 else None
+close = df["Close"].dropna()
 
-chg = last - prev if prev is not None else None
-chg_pct = (chg / prev * 100) if prev not in (None, 0) else None
+last = float(close.iloc[-1])
+prev = float(close.iloc[-2]) if len(close) > 1 else None
 
-hi = df["High"].max()
-lo = df["Low"].min()
+if prev is not None and prev != 0:
+    chg = last - prev
+    chg_pct = (chg / prev) * 100
+else:
+    chg = None
+    chg_pct = None
+
+hi = float(df["High"].max())
+lo = float(df["Low"].min())
 
 c1, c2, c3, c4, c5 = st.columns(5)
 c1.metric("Last", f"{last:,.2f}")
