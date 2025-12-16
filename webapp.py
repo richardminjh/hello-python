@@ -274,21 +274,27 @@ if not measure_mode:
 selected_points = None
 
 if measure_mode and plotly_events is not None:
-    # NOTE: streamlit-plotly-events versions differ; many do not support `config=`.
-    selected_points = plotly_events(
-        fig,
-        select_event=True,
-        click_event=False,
-        override_height=600,
-        override_width="100%",
-        key=f"plotly-{ticker}-{period}-{interval}-{show_ohlc}-{measure_mode}",
-    )
+    # Some versions of streamlit-plotly-events are picky about override_width types.
+    # Also: never let the chart disappear — always have a fallback render.
+    try:
+        selected_points = plotly_events(
+            fig,
+            select_event=True,
+            click_event=False,
+            override_height=600,
+            override_width=1100,  # must be an int for many versions
+            key=f"plotly-{ticker}-{period}-{interval}-{show_ohlc}-{measure_mode}",
+        )
+    except Exception as e:
+        st.warning(f"Measure Δ failed to render (falling back to normal chart): {e}")
+        st.plotly_chart(fig, width="stretch", config=chart_config)
+        selected_points = None
 else:
-    st.plotly_chart(
-        fig,
-        width="stretch",
-        config=chart_config,
-    )
+    st.plotly_chart(fig, width="stretch", config=chart_config)
+
+# If measure_mode is on but the component returned nothing, still show a normal chart
+if measure_mode and plotly_events is not None and selected_points is None:
+    st.plotly_chart(fig, width="stretch", config=chart_config)
 
 # If user selected a range of candles/points, compute delta
 if selected_points:
