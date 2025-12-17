@@ -762,7 +762,7 @@ with stats_col:
         """
         <style>
           .stats-panel {
-            height: 640px;                 /* match components.html height */
+            height: 600px;                 /* match components.html height */
             display: flex;
             flex-direction: column;
             justify-content: flex-start;
@@ -783,15 +783,15 @@ with stats_col:
             display: grid;
             grid-template-columns: 1fr 1fr;
             column-gap: 22px;
-            row-gap: 26px;                 /* more vertical breathing room */
+            row-gap: 30px;                 /* more vertical breathing room */
             flex: 1;
             align-content: space-between;  /* spread rows vertically to reduce dead space */
             padding-bottom: 10px;
           }
-          .stat-k { font-size: 12px; opacity: 0.85; margin-bottom: 6px; }
-          .stat-v { font-size: 22px; font-weight: 800; line-height: 1.05; }
+          .stat-k { font-size: 13.5px; opacity: 0.86; margin-bottom: 7px; }
+            .stat-v { font-size: 25px; font-weight: 850; line-height: 1.05; }
           .stats-tip {
-            margin-top: 8px;               /* move tip up slightly */
+            margin-top: 4px;               /* move tip up slightly */
             font-size: 11px;
             opacity: 0.65;
             padding-bottom: 0px;
