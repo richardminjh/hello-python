@@ -571,7 +571,7 @@ with chart_col:
         scrollZoom: true,
         displaylogo: false,
         responsive: true,
-        modeBarButtonsToRemove: ['zoom2d','pan2d','autoScale2d','resetScale2d','select2d','lasso2d','zoomIn2d','zoomOut2d'],,
+        modeBarButtonsToRemove: ['zoom2d','pan2d','autoScale2d','resetScale2d','select2d','lasso2d','zoomIn2d','zoomOut2d'],
       }};
       Plotly.newPlot(gd, fig.data, fig.layout, config).then(() => {{
         const xr = gd._fullLayout.xaxis.range;
