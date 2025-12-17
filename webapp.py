@@ -573,49 +573,6 @@ with chart_col:
         responsive: true,
         modeBarButtonsToRemove: ['zoom2d','pan2d','autoScale2d','resetScale2d','select2d','lasso2d','zoomIn2d','zoomOut2d'],,
       }};
-      modeBarButtonsToAdd: [{
-        name: 'Download CSV',
-        title: 'Download data as CSV',
-        icon: Plotly.Icons.disk,
-        click: function(gd) {
-            const hasOHLC = payload.open && payload.high && payload.low;
-            const volTrace = payload.fig.data.find(t => t.name === 'Volume');
-            const hasVol = !!volTrace;
-
-            const header = hasOHLC
-            ? ['Date','Open','High','Low','Close'].concat(hasVol ? ['Volume'] : [])
-            : ['Date','Close'].concat(hasVol ? ['Volume'] : []);
-
-            const rows = [header.join(',')];
-
-            for (let i = 0; i < payload.x.length; i++) {
-            const d = payload.x[i];
-            const parts = hasOHLC
-                ? [d, payload.open[i], payload.high[i], payload.low[i], payload.close[i]]
-                : [d, payload.close[i]];
-
-            if (hasVol) {
-                // best-effort: volume is stored in bar trace customdata at same index
-                const v = (volTrace.customdata && volTrace.customdata[i] != null) ? volTrace.customdata[i] : '';
-                parts.push(v);
-            }
-            rows.push(parts.map(x => (x == null ? '' : String(x))).join(','));
-            }
-
-            const csv = rows.join('\\n');
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-
-            const a = document.createElement('a');
-            const safe = (payload.label || 'data').replace(/[^a-z0-9\\-_. ]/gi, '_');
-            a.href = url;
-            a.download = safe + '.csv';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-        }],
       Plotly.newPlot(gd, fig.data, fig.layout, config).then(() => {{
         const xr = gd._fullLayout.xaxis.range;
         if (xr && xr.length === 2) {{
